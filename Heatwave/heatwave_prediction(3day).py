@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+import joblib
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 import matplotlib.pyplot as plt
@@ -12,7 +13,7 @@ from sklearn.metrics import (
 )
 
 base_dir = os.path.dirname(__file__)
-df = pd.read_csv(os.path.join(base_dir, "heatwave.csv"))
+df = pd.read_csv("heatwave.csv")
 
 df['date'] = pd.to_datetime(df['date'])
 
@@ -65,15 +66,15 @@ df['temp_change_3day'] = (
 df = df.dropna()
 
 features = [
-    'lat',
-    'lon',
     'tmax_prev1',
     'tmax_prev2',
     'tmax_prev3',
     'rolling_3day_avg',
     'rolling_3day_max',
     'rolling_3day_std',
-    'temp_change_3day'
+    'temp_change_3day',
+    'tmax_normal',
+    'departure'
 ]
 
 train_df = df[df['year'] <= 2015]
@@ -195,39 +196,10 @@ plt.grid(alpha=0.3)
 
 plt.show()
 
-sample_data = pd.DataFrame([{
-    'lat': 28.5,
-    'lon': 77.5,
-    'tmax_prev1': 42.5,
-    'tmax_prev2': 41.8,
-    'tmax_prev3': 40.9,
-    'rolling_3day_avg': 41.73,
-    'rolling_3day_max': 42.5,
-    'rolling_3day_std': 0.80,
-    'temp_change_3day': 1.6
-}])
 
-sample_probability = model.predict_proba(
-    sample_data
+
+
+joblib.dump(
+    model,
+    "severe_heatwave_model.pkl"
 )
-
-print(
-    "\nNo Severe Heatwave :",
-    sample_probability[0][0] * 100,
-    "%"
-)
-
-print(
-    "Severe Heatwave :",
-    sample_probability[0][1] * 100,
-    "%"
-)
-
-sample_prediction = (
-    sample_probability[0][1] > threshold
-)
-
-if sample_prediction:
-    print("Severe Heatwave Predicted")
-else:
-    print("No Severe Heatwave")
