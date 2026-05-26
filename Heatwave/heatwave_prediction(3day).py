@@ -1,19 +1,22 @@
+import os
 import pandas as pd
-from sklearn.model_selection import train_test_split
+import numpy as np
 from sklearn.ensemble import RandomForestClassifier
+import matplotlib.pyplot as plt
 from sklearn.metrics import (
     accuracy_score,
     classification_report,
-    confusion_matrix
+    confusion_matrix,
+    roc_auc_score,
+    roc_curve
 )
-import matplotlib.pyplot as plt
 
-df = pd.read_csv("heatwave.csv")
+base_dir = os.path.dirname(__file__)
+df = pd.read_csv(os.path.join(base_dir, "heatwave.csv"))
 
 df['date'] = pd.to_datetime(df['date'])
 
 df['year'] = df['date'].dt.year
-df['month'] = df['date'].dt.month
 
 df = df.sort_values(
     by=['lat', 'lon', 'date']
@@ -41,6 +44,20 @@ df['rolling_3day_avg'] = (
     )
 )
 
+df['rolling_3day_max'] = (
+    df.groupby(['lat', 'lon'])['tmax_c']
+    .transform(
+        lambda x: x.rolling(3).max()
+    )
+)
+
+df['rolling_3day_std'] = (
+    df.groupby(['lat', 'lon'])['tmax_c']
+    .transform(
+        lambda x: x.rolling(3).std()
+    )
+)
+
 df['temp_change_3day'] = (
     df['tmax_c'] - df['tmax_prev3']
 )
@@ -48,34 +65,42 @@ df['temp_change_3day'] = (
 df = df.dropna()
 
 features = [
-    'month',
+    'lat',
+    'lon',
     'tmax_prev1',
     'tmax_prev2',
     'tmax_prev3',
     'rolling_3day_avg',
+    'rolling_3day_max',
+    'rolling_3day_std',
     'temp_change_3day'
 ]
 
-X = df[features]
+train_df = df[df['year'] <= 2015]
+test_df = df[df['year'] > 2015]
 
-y = df['is_severe_heatwave']
+X_train = train_df[features]
+y_train = train_df['is_severe_heatwave']
 
-X_train, X_test, y_train, y_test = train_test_split(
-    X,
-    y,
-    test_size=0.2,
-    random_state=1
-)
+X_test = test_df[features]
+y_test = test_df['is_severe_heatwave']
 
 model = RandomForestClassifier(
     n_estimators=50,
     random_state=1,
-    n_jobs=-1
+    n_jobs=-1,
+    class_weight='balanced'
 )
 
 model.fit(X_train, y_train)
 
-predictions = model.predict(X_test)
+probabilities = model.predict_proba(X_test)[:, 1]
+
+threshold = 0.30
+
+predictions = (
+    probabilities > threshold
+).astype(int)
 
 accuracy = accuracy_score(
     y_test,
@@ -101,6 +126,14 @@ print(
     )
 )
 
+auc_score = roc_auc_score(
+    y_test,
+    probabilities
+)
+
+print("\nROC-AUC Score:")
+print(auc_score)
+
 feature_importance = pd.DataFrame({
     'Feature': features,
     'Importance': model.feature_importances_
@@ -114,34 +147,87 @@ feature_importance = feature_importance.sort_values(
 print("\nFeature Importance:")
 print(feature_importance)
 
+plt.figure(figsize=(12, 6))
+
+plt.bar(
+    feature_importance['Feature'],
+    feature_importance['Importance']
+)
+
+plt.title("Feature Importance")
+
+plt.xlabel("Feature")
+plt.ylabel("Importance")
+
+plt.xticks(rotation=30)
+
+plt.grid(axis='y', alpha=0.3)
+
+plt.show()
+
+fpr, tpr, thresholds = roc_curve(
+    y_test,
+    probabilities
+)
+
+plt.figure(figsize=(8, 6))
+
+plt.plot(
+    fpr,
+    tpr,
+    label=f"AUC = {auc_score:.3f}"
+)
+
+plt.plot(
+    [0, 1],
+    [0, 1],
+    linestyle='--'
+)
+
+plt.xlabel("False Positive Rate")
+plt.ylabel("True Positive Rate")
+
+plt.title("ROC Curve")
+
+plt.legend()
+
+plt.grid(alpha=0.3)
+
+plt.show()
 
 sample_data = pd.DataFrame([{
-    'month': 5,
-    'tmax_prev1': 40.5,
-    'tmax_prev2': 41.2,
-    'tmax_prev3': 39.8,
-    'rolling_3day_avg': 40.5,
-    'temp_change_3day': 1.25
+    'lat': 28.5,
+    'lon': 77.5,
+    'tmax_prev1': 42.5,
+    'tmax_prev2': 41.8,
+    'tmax_prev3': 40.9,
+    'rolling_3day_avg': 41.73,
+    'rolling_3day_max': 42.5,
+    'rolling_3day_std': 0.80,
+    'temp_change_3day': 1.6
 }])
 
-probability = model.predict_proba(sample_data)
+sample_probability = model.predict_proba(
+    sample_data
+)
 
 print(
     "\nNo Severe Heatwave :",
-    probability[0][0] * 100,
+    sample_probability[0][0] * 100,
     "%"
 )
 
 print(
     "Severe Heatwave :",
-    probability[0][1] * 100,
+    sample_probability[0][1] * 100,
     "%"
 )
 
-prediction = model.predict(sample_data)
+sample_prediction = (
+    sample_probability[0][1] > threshold
+)
 
-if prediction[0] == 1:
+if sample_prediction:
     print("Severe Heatwave Predicted")
 else:
     print("No Severe Heatwave")
-    
