@@ -73,7 +73,6 @@ features = [
     'rolling_3day_max',
     'rolling_3day_std',
     'temp_change_3day',
-    'tmax_normal',
     'departure'
 ]
 
@@ -201,5 +200,5 @@ plt.show()
 
 joblib.dump(
     model,
-    "severe_heatwave_model.pkl"
+    "severe_heatwave_model1.pkl"
 )
