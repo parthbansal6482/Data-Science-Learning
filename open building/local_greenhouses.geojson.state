@@ -1,0 +1,14 @@
+{
+  "last_release": "2026-05-20.0",
+  "last_run": "2026-06-05T11:43:16.704309+00:00",
+  "theme": "buildings",
+  "type": "building",
+  "bbox": {
+    "xmin": -69.804,
+    "ymin": 9.966,
+    "xmax": -69.795,
+    "ymax": 9.975
+  },
+  "backend": "geojson",
+  "output": "/Users/parthbansal/Satyukt Analytics/local_greenhouses.geojson"
+}
