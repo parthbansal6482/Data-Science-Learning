@@ -11,6 +11,7 @@ from sklearn.metrics import (
     roc_auc_score,
     roc_curve
 )
+from sklearn.calibration import CalibratedClassifierCV
 
 base_dir = os.path.dirname(__file__)
 df = pd.read_csv("heatwave.csv")
@@ -91,10 +92,18 @@ model = RandomForestClassifier(
     n_jobs=-1,
     class_weight='balanced'
 )
-
 model.fit(X_train, y_train)
 
-probabilities = model.predict_proba(X_test)[:, 1]
+
+cal_model = CalibratedClassifierCV(
+    model,
+    method="isotonic",
+    cv=5
+)
+
+cal_model.fit(X_train, y_train)
+
+probabilities = cal_model.predict_proba(X_test)[:, 1]
 
 threshold = 0.30
 
@@ -199,6 +208,6 @@ plt.show()
 
 
 joblib.dump(
-    model,
-    "severe_heatwave_model1.pkl"
+    cal_model,
+    "severe_heatwave_model2.pkl"
 )
